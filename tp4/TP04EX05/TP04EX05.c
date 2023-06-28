@@ -3,11 +3,12 @@
 #include <string.h>
 #include <stdbool.h>
 #include <math.h> 
+#define SIZE_ARRAYLIST 75
 const int SIZE_LINE = 585; 
 const int SIZE_ATTRIBUTE = 385;
 const int ENTRY_PUBIN = 15;
-const int LIST_GAME = 50;
 
+// -----------------------------------------------------------------------------------------
 // Objeto de Data
 typedef struct {
 	int month;
@@ -88,7 +89,9 @@ int getMonthNumber(char *month) {
         return 12;
     return -1;
 }
+// -----------------------------------------------------------------------------------------
 
+// -----------------------------------------------------------------------------------------
 // Objeto de Game
 typedef struct {
 	int appId, age, dlcs, avgPt, sizeLanguages, sizeGeneros;
@@ -443,47 +446,131 @@ void freeGame(Game *game) {
     }
     free(game);
 }
+// -----------------------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------------------
+typedef struct Cell {
+    Game game;
+    struct Cell *next;
+} Cell;
+
+// Metodo para criar uma nova Cell
+Cell* newCell(Game game) {
+    Cell *tmp = malloc(sizeof(Cell));
+    tmp->game = game;
+    tmp->next = NULL;
+
+    return tmp;
+}
+
+// -----------------------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------------------
+Cell *first, *last;
+
+// Metodo para inicializar as variaveis - Construtor
+void start() {
+    first = last = NULL;
+}
+
+// Metodo para empilhar na pilha
+void push(Game game) {
+    if(first == NULL) {
+        first = newCell(game);
+        last = first;
+    } else {
+        last->next = newCell(game);
+        last = last->next;
+    }
+}
+
+// Metodo para desempilhar na pilha
+Game pop() {
+    Cell *i;
+    Game gameRemoved;
+    for(i = first; i->next != last; i = i->next);
+    gameRemoved = last->game;
+
+    free(last->next);
+    free(last);
+
+    i->next = NULL;
+    last = i;
+    return gameRemoved; 
+}
+
+// Metodo para mostrar os jogos na pilha
+void showStack() {
+    int counter = 0;
+    for(Cell *i = first; i != NULL; i = i->next) {
+        printf("[%d] ", counter++);
+        show(&i->game);
+    }
+}
+// -----------------------------------------------------------------------------------------
+
+// Metodo que pesquisa o jogo no arquivo de jogos 
+Game searchGameDatabase(int id) {
+    char *line = (char *) malloc(sizeof(char) * SIZE_LINE);
+    FILE *database = fopen("tmp/games.csv", "r");
+    if(database == NULL) { 
+        database = fopen("/tmp/games.csv", "r"); 
+    }
+
+    while(fgets(line, SIZE_LINE, database) != NULL) {
+        Game game;
+        toRead(&game, line);
+
+        if(id == game.appId) {
+            return game;
+            break;
+        } 
+    }
+
+    fclose(database);
+    free(line);
+}
+
+// Metodo para verificar o fim do arquivo pubIn
+bool theEnd(char *entry) {
+    return (entry[0] == 'F' && entry[1] == 'I' && entry[2] == 'M');
+}
 
 int main() {
-	FILE *database, *pubIn;
+    FILE *pubIn = fopen("pub.in", "r");
     char *entry = (char *) malloc(sizeof(char) * ENTRY_PUBIN);
-    Game **listGame = malloc(sizeof(Game *) * 50);
-    int counter = 0;
-
-    pubIn = fopen("pub.in", "r");
-
+    int n, counter = 0;
+    
+    start();
+    
     do {
         fgets(entry, ENTRY_PUBIN, pubIn);
 
-        if(strcmp(entry, "FIM")) {
-            char *line = (char *) malloc(sizeof(char) * SIZE_LINE);
-
-            database = fopen("tmp/games.csv", "r");
-            if(database == NULL) { 
-                database = fopen("/tmp/games.csv", "r"); 
-            }
-
-            while(fgets(line, SIZE_LINE, database) != NULL) {
-                Game *game = (Game *) malloc(sizeof(Game));
-                toRead(game, line);
-
-                if(atoi(entry) == game->appId) {
-                    listGame[counter] = game;
-                    show(listGame[counter]);
-                    counter++;
-                    break;
-                } else {
-                    freeGame(game);
-                }
-            }
-
-            fclose(database);
-            free(line);
+        if(!theEnd(entry)) {
+            push(searchGameDatabase(atoi(entry)));
         }
-    } while (strcmp(entry, "FIM"));
+
+    } while (!theEnd(entry));
+
+    fgets(entry, ENTRY_PUBIN, pubIn);
+    n = atoi(entry);
     
-    
+    for(int i = 0; i < n; i++) {
+        fscanf(pubIn, "%s", entry);
+
+        if(!strcmp(entry, "I")) {
+            int id;
+            fscanf(pubIn, "%d", &id);
+            push(searchGameDatabase(id));
+        } else {
+            Game gameRemoved = pop();
+            printf("(R) %s\n", gameRemoved.name);
+        }
+    }
+
+    showStack();
+
     fclose(pubIn);
     free(entry);
-	return 0;
+    return 0;
 }

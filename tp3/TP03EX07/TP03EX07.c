@@ -3,11 +3,12 @@
 #include <string.h>
 #include <stdbool.h>
 #include <math.h> 
+#define SIZE_ARRAYLIST 75
 const int SIZE_LINE = 585; 
 const int SIZE_ATTRIBUTE = 385;
 const int ENTRY_PUBIN = 15;
-const int LIST_GAME = 50;
 
+// -----------------------------------------------------------------------------------------
 // Objeto de Data
 typedef struct {
 	int month;
@@ -88,7 +89,9 @@ int getMonthNumber(char *month) {
         return 12;
     return -1;
 }
+// -----------------------------------------------------------------------------------------
 
+// -----------------------------------------------------------------------------------------
 // Objeto de Game
 typedef struct {
 	int appId, age, dlcs, avgPt, sizeLanguages, sizeGeneros;
@@ -443,47 +446,200 @@ void freeGame(Game *game) {
     }
     free(game);
 }
+// -----------------------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------------------
+Game array[SIZE_ARRAYLIST];
+int position;
+
+// Metodo para inicializar as variaveis - Construtor
+void start() {
+    position = 0;
+}
+
+// Metodo para inserir um Game na primeira posicao do arrayList e move os demais
+void insertStart(Game game) {
+    if(position >= SIZE_ARRAYLIST) {
+        printf("Erro ao Inserir no Inicio\n");
+        exit(1);
+    }
+
+    for(int i = position; i > 0; i--) {
+        array[i] = array[i - 1];
+    }
+
+    array[0] = game;
+    position++;
+}
+
+// Metodo para inserir o Game no fim do arrayList
+void insertEnd(Game game) {
+    if(position >= SIZE_ARRAYLIST) {
+        printf("Erro ao Inserir no Fim\n");
+        exit(1);
+    }
+
+    array[position++] = game;
+}
+
+// Metodo para inserir Game em uma posicao especifica
+void insert(Game game, int pos) {
+    if(pos >= SIZE_ARRAYLIST || pos < 0 || pos > position) {
+        printf("Erro ao Inserir\n");
+        exit(1);
+    } else if (pos == 0) {
+        insertStart(game);
+    } else if (pos == position) {
+        insertEnd(game);
+    } else {
+        for(int i = position; i > pos; i--) {
+            array[i] = array[i - 1];
+        }
+
+        array[pos] = game;
+        position++;
+    }
+}
+
+// Metodo para remover o Game no comeco do arrayList
+Game removeStart() {
+    if(position == 0) {
+        printf("Erro ao Remover no Final\n");
+        exit(1);
+    }
+
+    Game gameRemoved = array[0];
+    position--;
+
+    for(int i = 0; i < SIZE_ARRAYLIST; i++) {
+        array[i] = array[i + 1];
+    }
+
+    return gameRemoved;
+}
+
+// Metodo para remover o Game no fim do arrayList
+Game removeEnd() {
+    if(position == 0) {
+        printf("Erro ao Remover no Final\n");
+        exit(1);
+    }
+
+    return array[--position];
+}
+
+// Metodo para remover Game em uma posicao especifica
+Game removeGame(int pos) {
+    Game game;
+
+    if(pos >= SIZE_ARRAYLIST || pos < 0 || pos > position) {
+        printf("Erro ao Remover\n");
+        exit(1);
+    } else if (pos == 0) {
+        game = removeStart();
+    } else if (pos == position) {
+        game = removeEnd();
+    } else {
+        game = array[pos];
+        position--;
+
+        for(int i = pos; i < position; i++) {
+            array[i] = array[i + 1];
+        }
+    }
+
+    return game;
+}
+
+float getBigger() {
+    float bigger = array[0].upvotes;
+
+    for(int i = 0; i < position; i++) {
+        if(bigger < array[i].upvotes) {
+            bigger = array[i].upvotes;
+        }
+    }
+
+    return bigger;
+}
+
+// Metodo de Ordenacao - Counting Sort
+void sort() {
+    int sizeCount = getBigger() + 1;
+    int count[sizeCount];
+    Game tidy[position];
+
+    // Inicializar cada posicao do array de contagem
+    for(int i = 0; i < sizeCount; count[i] = 0, i++);
+
+    // Agora, o count[i] contem o numero de elemento iguais a i
+    for(int i = 0; i < position; count[(int)array[i].upvotes]++, i++);
+
+    //Agora, o count[i] contem o numero de elemento menores ou iguais a i
+    for(int i = 1; i < sizeCount; count[i] += count[i-1], i++);
+
+    // Ordenado
+    for(int i = position - 1; i >= 0; tidy[count[(int)array[i].upvotes] - 1] = array[i], count[(int)array[i].upvotes]--, i--);
+
+    // Copiando para o array original
+    for(int i = 0; i < position; array[i] = tidy[i], i++);
+}
+
+// Metodo para mostrar os jogos do arrayList
+void showArrayList() {
+    for(int i = 0; i < position; i++) {
+        show(&array[i]);
+    }
+}
+// -----------------------------------------------------------------------------------------
+
+// Metodo que pesquisa o jogo no arquivo de jogos 
+Game searchGameDatabase(int id) {
+    char *line = (char *) malloc(sizeof(char) * SIZE_LINE);
+    FILE *database = fopen("tmp/games.csv", "r");
+    if(database == NULL) { 
+        database = fopen("/tmp/games.csv", "r"); 
+    }
+
+    while(fgets(line, SIZE_LINE, database) != NULL) {
+        Game game;
+        toRead(&game, line);
+
+        if(id == game.appId) {
+            return game;
+            break;
+        } 
+    }
+
+    fclose(database);
+    free(line);
+}
+
+// Metodo para verificar o fim do arquivo pubIn
+bool theEnd(char *entry) {
+    return (entry[0] == 'F' && entry[1] == 'I' && entry[2] == 'M');
+}
 
 int main() {
-	FILE *database, *pubIn;
+    FILE *pubIn = fopen("pub.in", "r");
     char *entry = (char *) malloc(sizeof(char) * ENTRY_PUBIN);
-    Game **listGame = malloc(sizeof(Game *) * 50);
-    int counter = 0;
+    int n, counter = 0;
 
-    pubIn = fopen("pub.in", "r");
+    start();
 
     do {
         fgets(entry, ENTRY_PUBIN, pubIn);
 
-        if(strcmp(entry, "FIM")) {
-            char *line = (char *) malloc(sizeof(char) * SIZE_LINE);
-
-            database = fopen("tmp/games.csv", "r");
-            if(database == NULL) { 
-                database = fopen("/tmp/games.csv", "r"); 
-            }
-
-            while(fgets(line, SIZE_LINE, database) != NULL) {
-                Game *game = (Game *) malloc(sizeof(Game));
-                toRead(game, line);
-
-                if(atoi(entry) == game->appId) {
-                    listGame[counter] = game;
-                    show(listGame[counter]);
-                    counter++;
-                    break;
-                } else {
-                    freeGame(game);
-                }
-            }
-
-            fclose(database);
-            free(line);
+        if(!theEnd(entry)) {
+            insertEnd(searchGameDatabase(atoi(entry)));
         }
-    } while (strcmp(entry, "FIM"));
-    
-    
+
+    } while (!theEnd(entry));
+
+    sort();
+    showArrayList();
+
     fclose(pubIn);
     free(entry);
-	return 0;
+    return 0;
 }

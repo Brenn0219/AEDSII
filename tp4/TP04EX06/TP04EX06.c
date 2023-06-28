@@ -3,11 +3,12 @@
 #include <string.h>
 #include <stdbool.h>
 #include <math.h> 
+#define SIZE_ARRAYLIST 75
 const int SIZE_LINE = 585; 
 const int SIZE_ATTRIBUTE = 385;
 const int ENTRY_PUBIN = 15;
-const int LIST_GAME = 50;
 
+// -----------------------------------------------------------------------------------------
 // Objeto de Data
 typedef struct {
 	int month;
@@ -88,7 +89,9 @@ int getMonthNumber(char *month) {
         return 12;
     return -1;
 }
+// -----------------------------------------------------------------------------------------
 
+// -----------------------------------------------------------------------------------------
 // Objeto de Game
 typedef struct {
 	int appId, age, dlcs, avgPt, sizeLanguages, sizeGeneros;
@@ -443,47 +446,141 @@ void freeGame(Game *game) {
     }
     free(game);
 }
+// -----------------------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------------------
+typedef struct Cell {
+    Game game;
+    struct Cell *next, *previous;
+} Cell;
+
+// Metodo para criar uma nova Cell
+Cell* newCell(Game game) {
+    Cell *tmp = malloc(sizeof(Cell));
+    tmp->game = game;
+    tmp->next = tmp->previous = NULL;
+
+    return tmp;
+}
+
+// -----------------------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------------------
+Cell *first, *last;
+
+// Metodo para inicializar as variaveis - Construtor
+void start() {
+    first = last = NULL;
+}
+
+// Metodo inserir no comeco o Game no inicio do arrayList
+void insertStart(Game game) {
+    if(first == NULL) {
+        first = newCell(game);
+        last = first;
+    } else {
+        Cell *tmp = newCell(game);
+        
+        tmp->next = first->next;
+        tmp->next->previous = tmp;
+        tmp->previous = first;
+        first->next = tmp;
+    }
+}
+
+// Metodo para inserir o Game no fim do arrayList
+void insertEnd(Game game) {
+    if(first == NULL) {
+        first = newCell(game);
+        last = first;
+    } else {
+        last->next = newCell(game);
+        last->next->previous = last;
+        last = last->next;
+    }
+}
+
+// Metodo para remover o game no inicio do arrayList
+Game removeStart() {
+    Game gameRemoved = first->game;
+    first = first->next;
+    first->previous = NULL;
+
+    free(first->previous->previous);
+    free(first->previous->next);
+    free(first->previous);
+
+    return gameRemoved;
+}
+
+// Metodo para remover o Game no fim do arrayList
+Game removeEnd() {
+    Game gameRemoved = last->game;
+    last = last->previous;
+    last->next = NULL;
+
+    free(last->next->next);
+    free(last->next->previous);
+    free(last->next);
+
+    return gameRemoved; 
+}
+
+// Metodo para mostrar os jogos do arrayList
+void showArrayList() {
+    int counter = 0;
+    for(Cell *i = first; i != NULL; i = i->next) {
+        show(&i->game);
+    }
+}
+// -----------------------------------------------------------------------------------------
+
+// Metodo que pesquisa o jogo no arquivo de jogos 
+Game searchGameDatabase(int id) {
+    char *line = (char *) malloc(sizeof(char) * SIZE_LINE);
+    FILE *database = fopen("tmp/games.csv", "r");
+    if(database == NULL) { 
+        database = fopen("/tmp/games.csv", "r"); 
+    }
+
+    while(fgets(line, SIZE_LINE, database) != NULL) {
+        Game game;
+        toRead(&game, line);
+
+        if(id == game.appId) {
+            return game;
+            break;
+        } 
+    }
+
+    fclose(database);
+    free(line);
+}
+
+// Metodo para verificar o fim do arquivo pubIn
+bool theEnd(char *entry) {
+    return (entry[0] == 'F' && entry[1] == 'I' && entry[2] == 'M');
+}
 
 int main() {
-	FILE *database, *pubIn;
+    FILE *pubIn = fopen("pub.in", "r");
     char *entry = (char *) malloc(sizeof(char) * ENTRY_PUBIN);
-    Game **listGame = malloc(sizeof(Game *) * 50);
-    int counter = 0;
-
-    pubIn = fopen("pub.in", "r");
-
+    int n, counter = 0;
+    
+    start();
+    
     do {
         fgets(entry, ENTRY_PUBIN, pubIn);
 
-        if(strcmp(entry, "FIM")) {
-            char *line = (char *) malloc(sizeof(char) * SIZE_LINE);
-
-            database = fopen("tmp/games.csv", "r");
-            if(database == NULL) { 
-                database = fopen("/tmp/games.csv", "r"); 
-            }
-
-            while(fgets(line, SIZE_LINE, database) != NULL) {
-                Game *game = (Game *) malloc(sizeof(Game));
-                toRead(game, line);
-
-                if(atoi(entry) == game->appId) {
-                    listGame[counter] = game;
-                    show(listGame[counter]);
-                    counter++;
-                    break;
-                } else {
-                    freeGame(game);
-                }
-            }
-
-            fclose(database);
-            free(line);
+        if(!theEnd(entry)) {
+            insertEnd(searchGameDatabase(atoi(entry)));
         }
-    } while (strcmp(entry, "FIM"));
-    
-    
+
+    } while (!theEnd(entry));
+
+    showArrayList();
+
     fclose(pubIn);
     free(entry);
-	return 0;
+    return 0;
 }

@@ -123,7 +123,7 @@ void formatHours(int seconds) {
 
 // Metodo para Arredondar a Porcentagem
 int formatPercentage(double conta) {
-    return ((int)(conta * 100));
+    return ((int)round(conta * 100));
 }
 
 // Metodo para remover os caracteres
@@ -351,6 +351,7 @@ void show(Game *game) {
     }
     printf("%s %s %s %s %d%% ", (strlen(game->website) ? game->website : "null"), (game->windows ? "true":"false"), (game->mac ? "true":"false"), (game->linxs ? "true":"false"), formatPercentage(game->upvotes));
     formatHours(game->avgPt);
+    printf("%s ", game->developers);
     if(game->sizeGeneros > 0) {
         printf("[");
         for(int i = 0; i < game->sizeGeneros; i++) {
@@ -459,7 +460,8 @@ void start() {
 // Metodo para inserir um Game na primeira posicao do arrayList e move os demais
 void insertStart(Game game) {
     if(position >= SIZE_ARRAYLIST) {
-
+        printf("Erro ao Inserir no Inicio\n");
+        exit(1);
     }
 
     for(int i = position; i > 0; i--) {
@@ -473,12 +475,83 @@ void insertStart(Game game) {
 // Metodo para inserir o Game no fim do arrayList
 void insertEnd(Game game) {
     if(position >= SIZE_ARRAYLIST) {
-
+        printf("Erro ao Inserir no Fim\n");
+        exit(1);
     }
 
     array[position++] = game;
 }
 
+// Metodo para inserir Game em uma posicao especifica
+void insert(Game game, int pos) {
+    if(pos >= SIZE_ARRAYLIST || pos < 0 || pos > position) {
+        printf("Erro ao Inserir\n");
+        exit(1);
+    } else if (pos == 0) {
+        insertStart(game);
+    } else if (pos == position) {
+        insertEnd(game);
+    } else {
+        for(int i = position; i > pos; i--) {
+            array[i] = array[i - 1];
+        }
+
+        array[pos] = game;
+        position++;
+    }
+}
+
+// Metodo para remover o Game no comeco do arrayList
+Game removeStart() {
+    if(position == 0) {
+        printf("Erro ao Remover no Final\n");
+        exit(1);
+    }
+
+    Game gameRemoved = array[0];
+    position--;
+
+    for(int i = 0; i < SIZE_ARRAYLIST; i++) {
+        array[i] = array[i + 1];
+    }
+
+    return gameRemoved;
+}
+
+// Metodo para remover o Game no fim do arrayList
+Game removeEnd() {
+    if(position == 0) {
+        printf("Erro ao Remover no Final\n");
+        exit(1);
+    }
+
+    return array[--position];
+}
+
+// Metodo para remover Game em uma posicao especifica
+Game removeGame(int pos) {
+    Game game;
+
+    if(pos >= SIZE_ARRAYLIST || pos < 0 || pos > position) {
+        printf("Erro ao Remover\n");
+        exit(1);
+    } else if (pos == 0) {
+        game = removeStart();
+    } else if (pos == position) {
+        game = removeEnd();
+    } else {
+        game = array[pos];
+        position--;
+
+        for(int i = pos; i < position; i++) {
+            array[i] = array[i + 1];
+        }
+    }
+
+    return game;
+}
+
+// Metodo para mostrar os jogos do arrayList
 void showArrayList() {
     for(int i = 0; i < position; i++) {
         printf("[%d] ", i);
@@ -509,6 +582,7 @@ Game searchGameDatabase(int id) {
     free(line);
 }
 
+// Metodo para verificar o fim do arquivo pubIn
 bool theEnd(char *entry) {
     return (entry[0] == 'F' && entry[1] == 'I' && entry[2] == 'M');
 }
@@ -516,15 +590,50 @@ bool theEnd(char *entry) {
 int main() {
     FILE *pubIn = fopen("pub.in", "r");
     char *entry = (char *) malloc(sizeof(char) * ENTRY_PUBIN);
+    int n, counter = 0;
+
+    start();
 
     do {
         fgets(entry, ENTRY_PUBIN, pubIn);
 
         if(!theEnd(entry)) {
-            insertStart(searchGameDatabase(atoi(entry)));
+            insertEnd(searchGameDatabase(atoi(entry)));
         }
 
     } while (!theEnd(entry));
+
+    fgets(entry, ENTRY_PUBIN, pubIn);
+    n = atoi(entry);
+
+    for(int i = 0; i < n; i++) {
+        fscanf(pubIn, "%s", entry);
+
+        if(!strcmp(entry, "II")) {
+            int id;
+            fscanf(pubIn, "%d", &id);
+            insertStart(searchGameDatabase(id));
+        } else if (!strcmp(entry, "IF")) {
+            int id;
+            fscanf(pubIn, "%d", &id);
+            insertEnd(searchGameDatabase(id));
+        } else if (!strcmp(entry, "I*")) {
+            int id, pos;
+            fscanf(pubIn, "%d%d", &pos, &id);
+            insert(searchGameDatabase(id), pos);
+        } else if (!strcmp(entry, "RI")) {
+            Game gameRemoved = removeStart();
+            printf("(R) %s\n", gameRemoved.name);
+        } else if (!strcmp(entry, "RF")) {
+            Game gameRemoved = removeEnd();
+            printf("(R) %s\n", gameRemoved.name);
+        } else {
+            int pos;
+            fscanf(pubIn, "%d", &pos);
+            Game gameRemoved = removeGame(pos);
+            printf("(R) %s\n", gameRemoved.name);
+        }
+    }
 
     showArrayList();
 
