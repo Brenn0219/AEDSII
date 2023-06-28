@@ -3,11 +3,12 @@
 #include <string.h>
 #include <stdbool.h>
 #include <math.h> 
+#define SIZE_ARRAYLIST 63
 const int SIZE_LINE = 585; 
 const int SIZE_ATTRIBUTE = 385;
 const int ENTRY_PUBIN = 15;
-const int LIST_GAME = 50;
 
+// -----------------------------------------------------------------------------------------
 // Objeto de Data
 typedef struct {
 	int month;
@@ -88,7 +89,9 @@ int getMonthNumber(char *month) {
         return 12;
     return -1;
 }
+// -----------------------------------------------------------------------------------------
 
+// -----------------------------------------------------------------------------------------
 // Objeto de Game
 typedef struct {
 	int appId, age, dlcs, avgPt, sizeLanguages, sizeGeneros;
@@ -120,7 +123,7 @@ void formatHours(int seconds) {
 
 // Metodo para Arredondar a Porcentagem
 int formatPercentage(double conta) {
-    return ((int)round(conta * 100));
+    return ((int)(conta * 100));
 }
 
 // Metodo para remover os caracteres
@@ -442,47 +445,90 @@ void freeGame(Game *game) {
     }
     free(game);
 }
+// -----------------------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------------------
+Game array[SIZE_ARRAYLIST];
+int position;
+
+// Metodo para inicializar as variaveis - Construtor
+void start() {
+    position = 0;
+}
+
+// Metodo para inserir um Game na primeira posicao do arrayList e move os demais
+void insertStart(Game game) {
+    if(position >= SIZE_ARRAYLIST) {
+
+    }
+
+    for(int i = position; i > 0; i--) {
+        array[i] = array[i - 1];
+    }
+
+    array[0] = game;
+    position++;
+}
+
+// Metodo para inserir o Game no fim do arrayList
+void insertEnd(Game game) {
+    if(position >= SIZE_ARRAYLIST) {
+
+    }
+
+    array[position++] = game;
+}
+
+void showArrayList() {
+    for(int i = 0; i < position; i++) {
+        printf("[%d] ", i);
+        show(&array[i]);
+    }
+}
+// -----------------------------------------------------------------------------------------
+
+// Metodo que pesquisa o jogo no arquivo de jogos 
+Game searchGameDatabase(int id) {
+    char *line = (char *) malloc(sizeof(char) * SIZE_LINE);
+    FILE *database = fopen("tmp/games.csv", "r");
+    if(database == NULL) { 
+        database = fopen("/tmp/games.csv", "r"); 
+    }
+
+    while(fgets(line, SIZE_LINE, database) != NULL) {
+        Game game;
+        toRead(&game, line);
+
+        if(id == game.appId) {
+            return game;
+            break;
+        } 
+    }
+
+    fclose(database);
+    free(line);
+}
+
+bool theEnd(char *entry) {
+    return (entry[0] == 'F' && entry[1] == 'I' && entry[2] == 'M');
+}
 
 int main() {
-	FILE *database, *pubIn;
+    FILE *pubIn = fopen("pub.in", "r");
     char *entry = (char *) malloc(sizeof(char) * ENTRY_PUBIN);
-    Game **listGame = malloc(sizeof(Game *) * 50);
-    int counter = 0;
-
-    pubIn = fopen("pub.in", "r");
 
     do {
         fgets(entry, ENTRY_PUBIN, pubIn);
 
-        if(strcmp(entry, "FIM")) {
-            char *line = (char *) malloc(sizeof(char) * SIZE_LINE);
-
-            database = fopen("tmp/games.csv", "r");
-            if(database == NULL) { 
-                database = fopen("/tmp/games.csv", "r"); 
-            }
-
-            while(fgets(line, SIZE_LINE, database) != NULL) {
-                Game *game = (Game *) malloc(sizeof(Game));
-                toRead(game, line);
-
-                if(atoi(entry) == game->appId) {
-                    listGame[counter] = game;
-                    show(listGame[counter]);
-                    counter++;
-                    break;
-                } else {
-                    freeGame(game);
-                }
-            }
-
-            fclose(database);
-            free(line);
+        if(!theEnd(entry)) {
+            insertStart(searchGameDatabase(atoi(entry)));
         }
-    } while (strcmp(entry, "FIM"));
-    
-    
+
+    } while (!theEnd(entry));
+
+    showArrayList();
+
     fclose(pubIn);
     free(entry);
-	return 0;
+    return 0;
 }
